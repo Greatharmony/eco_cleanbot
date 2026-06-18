@@ -32,7 +32,11 @@ TRASH_CLASSES = {
     'bowl', 'book'
 }
 
-CONFIDENCE_THRESHOLD = 0.40
+# Lowered from 0.40 — Gazebo's simplified, flat-shaded models (bowls, cups,
+# tilted bottles) often score well below 0.40 against the real-photo-trained
+# COCO model, so the old threshold was silently discarding valid detections.
+CONFIDENCE_THRESHOLD = 0.20
+
 DETECTION_FRAMES_REQUIRED = 2
 LINEAR_SLOW_SPEED = 0.05  # m/s — creep speed on first detection frame before full stop
 MIN_DISTANCE_BETWEEN_MARKERS = 0.5  # meters, avoid duplicate markers for same trash
@@ -44,6 +48,9 @@ CLASS_COLORS = {
     'bottle': (0.0, 0.6, 1.0),
     'can': (1.0, 0.6, 0.0),
     'cup': (1.0, 0.6, 0.0),
+    'bowl': (1.0, 0.0, 0.6),
+    'wine glass': (0.6, 0.0, 1.0),
+    'book': (0.0, 1.0, 0.4),
     'default': (1.0, 0.0, 0.0),
 }
 
@@ -72,7 +79,7 @@ class TrashDetector(Node):
         self.alert_cooldown_active = False
         self._alert_cooldown_timer = None
         self.marker_id_counter = 0
-        self.known_locations = []  # list of (x, y) already marked
+        self.known_locations = []  # list of (x, y, trash_type) already marked
 
         # TF setup for getting robot's map-frame position
         self.tf_buffer = Buffer()
@@ -189,9 +196,6 @@ class TrashDetector(Node):
     def image_callback(self, msg: Image):
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.get_logger().info(
-            f'Frame shape: {frame.shape}, mean pixel value: {frame.mean():.2f}, encoding: {msg.encoding}'
-        )
         except Exception as e:
             self.get_logger().error(f'cv_bridge error: {e}')
             return
@@ -219,14 +223,32 @@ class TrashDetector(Node):
 
             if self.detection_counter >= DETECTION_FRAMES_REQUIRED:
                 self.stop_robot()
+                self.robot_stopped = True
 
                 pose = self.get_robot_pose()
                 if pose is not None:
                     x, y = pose
 
-                    # Always alert the patrol node when trash is confirmed — patrol deduplicates
-                    # while already paused. Cooldown prevents infinite re-pause after resume.
-                    if not self.alert_cooldown_active:
+                    # Log/mark every detected item whose (location, type) pair
+                    # is genuinely new. is_new_location is the ONLY gatekeeper
+                    # here, so the same object never gets logged twice even
+                    # while the robot sits still looking at it for many frames.
+                    any_new_this_frame = False
+                    for d in detections:
+                        if self.is_new_location(x, y, d['name']):
+                            self.publish_marker(x, y, d['name'])
+                            self.log_detection(d['name'], x, y, d['conf'])
+                            self.known_locations.append((x, y, d['name']))
+                            any_new_this_frame = True
+                            self.get_logger().info(
+                                f"[TRASH DETECTED] {d['name']} conf={d['conf']:.2f} at ({x:.2f},{y:.2f})"
+                            )
+                        # else: already logged at this spot — skip silently,
+                        # no need to spam [DUPLICATE] every single frame
+
+                    # Only alert the patrol node (pause + avoid) when something
+                    # NEW was actually logged this frame, not on every repeat
+                    if any_new_this_frame and not self.alert_cooldown_active:
                         self.alert_cooldown_active = True
                         if self._alert_cooldown_timer is not None:
                             self._alert_cooldown_timer.cancel()
@@ -239,21 +261,6 @@ class TrashDetector(Node):
                         alert.point.x = x
                         alert.point.y = y
                         self.alert_pub.publish(alert)
-
-                    if not self.robot_stopped:
-                        self.robot_stopped = True
-                        for d in detections:
-                            if self.is_new_location(x, y, d['name']):
-                                self.publish_marker(x, y, d['name'])
-                                self.log_detection(d['name'], x, y, d['conf'])
-                                self.known_locations.append((x, y, d['name']))
-                                self.get_logger().info(
-                                    f"[TRASH DETECTED] {d['name']} conf={d['conf']:.2f} at ({x:.2f},{y:.2f})"
-                                )
-                            else:
-                                self.get_logger().info(
-                                    f"[DUPLICATE] {d['name']} already marked near this location"
-                                )
                 else:
                     self.get_logger().warn('Could not get robot pose, skipping marker/log')
 
@@ -274,6 +281,7 @@ class TrashDetector(Node):
 
         cv2.imshow('Eco CleanBot — Camera Feed', frame)
         key = cv2.waitKey(10)
+
 
 def main(args=None):
     rclpy.init(args=args)
