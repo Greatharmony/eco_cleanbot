@@ -90,6 +90,11 @@ python3 ~/turtlebot3_ws/src/eco_cleanbot/eco_cleanbot/scripts/patrol_node.py
 python3 ~/turtlebot3_ws/src/eco_cleanbot/eco_cleanbot/scripts/trash_detector.py
 ```
 > 실행 후, RViz2에서 trash_dectector Marker 켜놓은 상태에서 수행해아됩니다.
+
+**터미널 5 — 좌표 trace:**
+```bash
+ros2 topic echo /cmd_vel
+```
  
 ## 탐지 기록 확인
  
