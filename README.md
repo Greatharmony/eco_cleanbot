@@ -30,7 +30,7 @@
 - **turtlebot3**: `https://emanual.robotis.com/docs/en/platform/turtlebot3/navigation/#run-navigation-nodes`
 - 
 ## YouTube 링크(demo video)
-- **Link**: `https://youtu.be/stE4gCkjEjo`
+- **Link**: `[https://youtu.be/stE4gCkjEjo](https://youtu.be/tZcsIw1GkIw)`
 
 ## Github 링크
 - **Link**: `https://github.com/Greatharmony/eco_cleanbot.git`
