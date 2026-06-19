@@ -129,7 +129,8 @@ ALERT_COOLDOWN_SEC = 5.0
 - **turtlebot3**: `https://emanual.robotis.com/docs/en/platform/turtlebot3/navigation/#run-navigation-nodes`
 - 
 ## YouTube 링크(demo video)
-- **Link**: `[https://youtu.be/stE4gCkjEjo](https://youtu.be/tZcsIw1GkIw)`
+- **Presentation videon Link**:`https://youtu.be/uFuABj5LfaQ`
+- **Demo video Link**: `[https://youtu.be/stE4gCkjEjo](https://youtu.be/tZcsIw1GkIw)`
 
 ## Github 링크
 - **Link**: `https://github.com/Greatharmony/eco_cleanbot.git`
